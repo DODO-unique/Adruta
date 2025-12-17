@@ -15,3 +15,13 @@ We will take the git status, convert it into a dictionary and also create a seco
 So we will return three things: Error flag, git status (a dictionary), and compared git guide.
 At each step we will make sure we are recording everything in a log file.
 '''
+from main import log
+
+def Dock(incoming: dict):
+    log(f"Received {incoming['code']} from source {incoming['source']} at {incoming['meta']['timestamp']} by Status. OK: {incoming['ok']}")
+
+    if incoming['ok']:
+        path_dictionary = incoming['body']
+        TARGET_PATH = path_dictionary['target_path']
+    
+
