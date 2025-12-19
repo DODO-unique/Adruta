@@ -15,54 +15,63 @@ We will take the git status, convert it into a dictionary and also create a seco
 So we will return three things: Error flag, git status (a dictionary), and compared git guide.
 At each step we will make sure we are recording everything in a log file.
 '''
-from main import log, Pigeon
+from main import loggy, Pigeon
 
 # local file code = 1 (status)
 squab = Pigeon(1)
 
 schema = squab.create_communication_schema
 
+def log(log: str) -> None:
+    loggy("status", log)
 
-def make_global():
-    pass
 
-def Dock(incoming: dict):
-    log(f"Received {incoming['code']} from source {incoming['source']} at {incoming['meta']['timestamp']} by Status. OK: {incoming['ok']}")
+class Soul:
 
-    if incoming['ok']:
-        path_dictionary = incoming['body']
-        TARGET_PATH = path_dictionary['target_path']
-        make_global(TARGET_PATH)
+    def __init__(self):
+        pass
 
-    
-
-def fetch_git_Status() -> str:
-        check_status = subprocess.run(
-            ["git", "status", "-s"],
-            cwd=path,
-            capture_output=True,
-            text=True
-        )
-        # print(check_status.returncode)
-        if check_status.returncode:
-            
-
-        else:
-            git_status = check_status.stdout
-
-            # debug essential!!
-            print("This is the git status: \n", git_status)
-
-            # imported comments >>
-            # Send the git status to next function. In OOPs we can just make it an attribute? Also, I don't understand why I added the fetch_path flag in the first place there.
-            # parseStatus(git_status, fetch_path=True)
-
-            # I will return the git status, and navigate through these class methods with an external main() function
-
-            return git_status
+    def Dock(self, incoming: dict):
+        log(f"Received {incoming['code']} from source {incoming['source']} at {incoming['meta']['timestamp']} by Status. OK: {incoming['ok']}")
+        if incoming['code'] == 101:
+            if incoming['ok']:
+                path_dictionary = incoming['body']
+                self.TARGET_PATH = path_dictionary['target_path']
         
+        if incoming['code'] == 102:
+            if incoming['ok']:
+                self.fetch_git_Status(details=True)
     
-    def parseStatus(self, snip: str, fetch_details= False) -> list:
+
+    def fetch_git_Status(self, details: bool = False) -> str:
+            check_status = subprocess.run(
+                ["git", "status", "-s"],
+                cwd=self.TARGET_PATH,
+                capture_output=True,
+                text=True
+            )
+            log("requesting git status...")
+            # in case of any errors raised:
+            if check_status.returncode:
+                err_code = check_status.returncode
+                err_msg = check_status.stderr
+                schema(ok=False, code=951, target=0, err_msg=err_msg, err_code=err_code, err_logged=False, fatal=True)
+                log("Failed to fetch git status")
+
+            
+            else:
+                self.GIT_STATUS = check_status.stdout
+                log("Success: Captured git status")
+                packaged_git_status = {"git_status": self.GIT_STATUS}
+                schema(code=901, target=0, body=packaged_git_status)
+            
+            if details:
+                git_status_code_with_description_and_paths = self.description(self.GIT_STATUS)
+                schema(code=902, target=0, body=git_status_code_with_description_and_paths)
+                log("Fetched and dispatched detailed git status")
+            
+    
+    def description(self, snip: str) -> dict:
 
         # First, I split the given into lines
         lines = snip.split("\n")
@@ -70,68 +79,34 @@ def fetch_git_Status() -> str:
 
         # took a sample corpus that we will compare our lines data against
 
-        git_status_combinations_list = {
-        # 1. Staged and Unstaged Changes (Tracked Files)
-        # The most common statuses
-        ' M': ['Modified in Working Tree (unstaged)'],
-        'M ': ['Modified in Index (staged)'],
-        'MM': ['Modified in Index (staged) AND modified again in Working Tree (unstaged)'],
-        ' A': ['Added in Working Tree (unstaged - very uncommon, usually A is seen)'],
-        'A ': ['Added to Index (staged)'],
-        ' D': ['Deleted in Working Tree (unstaged)'],
-        'D ': ['Deleted from Index (staged)'],
-        ' R': ['Renamed in Working Tree (unstaged)'],
-        'R ': ['Renamed and Staged'],
-        ' C': ['Copied in Working Tree (unstaged)'],
-        'C ': ['Copied and Staged'],
-        
-        # 2. Unmerged Files (Conflicts) - X and Y are both 'U', 'A', or 'D'
-        'UU': ['Unmerged (Unresolved Conflict - Both Modified)'],
-        'AU': ['Unmerged (Added by us, Updated by them)'],
-        'UA': ['Unmerged (Updated by us, Added by them)'],
-        'UD': ['Unmerged (Updated by us, Deleted by them)'],
-        'DU': ['Unmerged (Deleted by us, Updated by them)'],
-        'AA': ['Unmerged (Both Added)'],
-        'DD': ['Unmerged (Both Deleted)'],
-        
-        # 3. Other Statuses (Untracked and Ignored)
-        '??': ['Untracked File (Not in Git yet)'],
-        '!!': ['Ignored File (Visible with --ignored)'],
-        
-        # 4. Special/Less Common States
-        'T ': ['File Type Changed (Staged)'], 
-        ' T': ['File Type Changed (Unstaged)'],
-        'CC': ['Copied and Staged AND copied again in Working Tree'],
-        'RR': ['Renamed and Staged AND renamed again in Working Tree'],
-        
-        # 5. Clean/Unmodified
-        '  ': ['Unmodified (Clean)'] # Only seen if a file is explicitly listed
+        git_status_combinations_list = {' M': {'description': 'Modified in Working Tree (unstaged)', 'paths': []}, 'M ': {'description': 'Modified in Index (staged)', 'paths': []}, 'MM': {'description': 'Modified in Index (staged) AND modified again in Working Tree (unstaged)', 'paths': []}, ' A': {'description': 'Added in Working Tree (unstaged - very uncommon, usually A is seen)', 'paths': []}, 'A ': {'description': 'Added to Index (staged)', 'paths': []}, ' D': {'description': 'Deleted in Working Tree (unstaged)', 'paths': []}, 'D ': {'description': 'Deleted from Index (staged)', 'paths': []}, ' R': {'description': 'Renamed in Working Tree (unstaged)', 'paths': []}, 'R ': {'description': 'Renamed and Staged', 'paths': []}, ' C': {'description': 'Copied in Working Tree (unstaged)', 'paths': []}, 'C ': {'description': 'Copied and Staged', 'paths': []}, 'UU': {'description': 'Unmerged (Unresolved Conflict - Both Modified)', 'paths': []}, 'AU': {'description': 'Unmerged (Added by us, Updated by them)', 'paths': []}, 'UA': {'description': 'Unmerged (Updated by us, Added by them)', 'paths': []}, 'UD': {'description': 'Unmerged (Updated by us, Deleted by them)', 'paths': []}, 'DU': {'description': 'Unmerged (Deleted by us, Updated by them)', 'paths': []}, 'AA': {'description': 'Unmerged (Both Added)', 'paths': []}, 'DD': {'description': 'Unmerged (Both Deleted)', 'paths': []}, '??': {'description': 'Untracked File (Not in Git yet)', 'paths': []}, '!!': {'description': 'Ignored File (Visible with --ignored)', 'paths': []}, 'T ': {'description': 'File Type Changed (Staged)', 'paths': []}, ' T': {'description': 'File Type Changed (Unstaged)', 'paths': []}, 'CC': {'description': 'Copied and Staged AND copied again in Working Tree', 'paths': []}, 'RR': {'description': 'Renamed and Staged AND renamed again in Working Tree', 'paths': []}, '  ': {'description': 'Unmodified (Clean)', 'paths': []}
     }
         
 
         # Iterating over every line element. The goal is to make a dictionary. I can use a comprehension but I need to keep redability intact.
         for line in lines:
 
+            # filter new lines:
+            if not line.strip():
+                continue
+
             # split line by space, very incovienient now that I think about it since git has spaces even in the symbols... so we have to skip two, then split the lines.
             # sp_line = line.split(" ")
 
             # improvised statement:
-            first_part = line[:2]
-            second_part = line[2:]
+            status_code = line[:2]
+            path = line[3:].strip()
 
 
             # This is important. I am checking if our data is in the corpus, if it is in then we are adding it to the corpus' list.
-            if first_part in git_status_combinations_list:
-                git_status_combinations_list[first_part].append(second_part)
+            if status_code in git_status_combinations_list:
+                git_status_combinations_list[status_code]['paths'].append(path)
 
-            # First we filter the corpus to make a fresh, filtered dictionary
-            dict_with_valid_paths = {key: value for key, value in git_status_combinations_list.items() if len(value) < 1}
+        filtered_git_status_list = {
+            key : value
+            for key, value 
+            in git_status_combinations_list.items()
+            if len(value['paths']) > 0
+        }
 
-            # we grab the paths from the dictionary- this is what we want. By default. I could've directly returned it, but for neatness I won't
-            paths = [path[1] for path in dict_with_valid_paths.values()]
-
-            # I will return these paths to main. If fetch_details flag is applied, I will send the list of list instead
-            if fetch_details:
-                return [path for path in dict_with_valid_paths.values()] 
-            
-            return paths
+        return filtered_git_status_list
