@@ -15,12 +15,17 @@ We will take the git status, convert it into a dictionary and also create a seco
 So we will return three things: Error flag, git status (a dictionary), and compared git guide.
 At each step we will make sure we are recording everything in a log file.
 '''
-from main import loggy, Pigeon
+from main import loggy, Pigeon, Conversations
+
+main_Dock = Conversations.Dock
+def outgoing(prepared_schematic):
+    main_Dock(prepared_schematic)
 
 # local file code = 1 (status)
 squab = Pigeon(1)
 
 schema = squab.create_communication_schema
+
 
 def log(log: str) -> None:
     loggy("status", log)
@@ -60,7 +65,7 @@ class Soul:
             if check_status.returncode:
                 err_code = check_status.returncode
                 err_msg = check_status.stderr
-                schema(ok=False, code=951, target=0, err_msg=err_msg, err_code=err_code, err_logged=False, fatal=True)
+                outgoing(schema(ok=False, code=951, target=0, err_msg=err_msg, err_code=err_code, err_logged=False, fatal=True))
                 log("Failed to fetch git status")
 
             
@@ -68,18 +73,18 @@ class Soul:
                 self.GIT_STATUS = check_status.stdout
                 log("Success: Captured git status")
                 packaged_git_status = {"git_status": self.GIT_STATUS}
-                schema(code=901, target=0, body=packaged_git_status)
+                outgoing(schema(code=901, target=0, body=packaged_git_status))
             
             if details:
                 git_status_code_with_description_and_paths = self.description(self.GIT_STATUS)
-                schema(code=902, target=0, body=git_status_code_with_description_and_paths)
+                outgoing(schema(code=902, target=0, body=git_status_code_with_description_and_paths))
                 log("Fetched and dispatched detailed git status")
             
             if paths:
                 paths_list = {
                 "paths" : self.path_list(self.GIT_STATUS)
                 }
-                schema(code=903, target=0, body=paths_list)
+                outgoing(schema(code=903, target=0, body=paths_list))
                 log("Fetched and dispatched list of paths")
     
     def description(self, snip: str) -> dict:
