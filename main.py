@@ -87,12 +87,14 @@ class Logger:
         except FileExistsError:
             # noisy but would help when debugging for the grand flow:
             self.entry("Attempted adding a new log file. Caught under explicit file creation")
+        
 
-    def entry(self, log: str):
+    def entry(self, local, log: str):
         
         # open the file
         with open(LOG_FILE, 'a') as logs:
-            logs.write(f'{datetime.now().isoformat()} -> {log}\n')
+            logs.write(f'{local} at {datetime.now().isoformat()} :\n')
+            logs.write(f'{log}\n')
 
 # This instance is shared, so all the files can add their logs.
 Hebu = Logger()
@@ -105,9 +107,12 @@ Hebu = Logger()
 # suggestion, try storing it as logs when importing elsewhere. Like `logs = Hebu.entry`, then going logs("Heyo!"). Wait, let me add that here itself:
 '''logs = Hebu.entry'''
 # now, simply `from main import logs` or better:
-def log(log: str) -> None:
-    Hebu.entry(log=log)
+def loggy(local, log: str) -> None:
+    Hebu.entry(local=local, log=log)
 # same thing, but no one dies during debugging.
+
+def log(log:str):
+    loggy("main", log)
 
 
 # ------------------ The section ends here ------------------
@@ -160,6 +165,8 @@ else:
         log_msg="Given path did not match relevant regex. Aborting..."
         )
 
+def reflect(msg):
+    print(msg)
 
 # a communication schema generator: Pigeon
 
@@ -174,10 +181,11 @@ class Pigeon:
         code: int,  
         target: int, 
         body: dict = None, 
-        err_msg: str = None, 
         source: int = None, 
+        err_msg: str = None, 
         err_content: dict = None, 
         err_logged: bool = True, 
+        err_code: bool = False,
         fatal: bool = False, 
         ok: bool = True
         
@@ -210,6 +218,7 @@ class Pigeon:
                     "message" : err_msg,
                     "content" : err_content,
                     "error_logged" : err_logged,
+                    "error_code" : err_code,
                     "fatal" : fatal
                 },
                 "meta" : {
@@ -224,7 +233,40 @@ class Pigeon:
 # sending initiation code to status.
 squab = Pigeon(0)
 
-main = squab.create_communication_schema
+schema = squab.create_communication_schema
 
-status.Dock(main(code=111, target=1, body={"target_path": TARGET_PATH}))
 
+
+class Conversations:
+
+    def __init__(self):
+        '''
+        This class is the main communication stream of the main.py file.
+        '''
+        pass
+
+    def Dock(self, incoming: dict):
+        log(f"Received {incoming['code']} from source {incoming['source']} at {incoming['meta']['timestamp']} by Status. OK: {incoming['ok']}")
+
+        '''
+        we will be sorting the incoming by code numbers.
+        all codes incoming to Dock, ok or otherwise, will be of the 900 series, all codes sent by Dock would be of the 100 series
+        '''
+        if incoming['ok']:
+            self.flow(incoming)
+        else:
+            self.exceptions(incoming)
+    
+    def flow(self, incoming: dict):
+        # first, sending initiation request to status so it fetches and sends the git status
+        status_soul = status.Soul()
+        status_soul.Dock(schema(code=101, target=1, body={"target_path": TARGET_PATH}))
+
+        if incoming['code'] == 901:
+            # we got a signal here, this schema has the git status (901)
+            git_status_dict = incoming['body'] 
+            formatted_git_status = git_status_dict["formatted_git_status"]
+            git_status = git_status_dict["git_status"]
+
+            # reflect the GIT_STATUS
+            reflect(f"This is the git status: \n {formatted_git_status}")
