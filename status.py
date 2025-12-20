@@ -37,13 +37,18 @@ class Soul:
             if incoming['ok']:
                 path_dictionary = incoming['body']
                 self.TARGET_PATH = path_dictionary['target_path']
+                self.fetch_git_Status()
         
         if incoming['code'] == 102:
             if incoming['ok']:
                 self.fetch_git_Status(details=True)
+            
+        if incoming['code'] == 103:
+            if incoming['ok']:
+                self.fetch_git_Status(paths=True)
     
 
-    def fetch_git_Status(self, details: bool = False) -> str:
+    def fetch_git_Status(self, details: bool = False, paths: bool = False) -> str:
             check_status = subprocess.run(
                 ["git", "status", "-s"],
                 cwd=self.TARGET_PATH,
@@ -70,6 +75,12 @@ class Soul:
                 schema(code=902, target=0, body=git_status_code_with_description_and_paths)
                 log("Fetched and dispatched detailed git status")
             
+            if paths:
+                paths_list = {
+                "paths" : self.path_list(self.GIT_STATUS)
+                }
+                schema(code=903, target=0, body=paths_list)
+                log("Fetched and dispatched list of paths")
     
     def description(self, snip: str) -> dict:
 
@@ -110,3 +121,19 @@ class Soul:
         }
 
         return filtered_git_status_list
+    
+    def path_list(self, snip: str) -> list:
+        
+        lines = snip.split("\n")
+        paths = []
+
+        for line in lines:
+            
+            if not line.strip():
+                continue
+
+            path = line[3:].strip()
+
+            paths.append(path)
+            
+        return paths
