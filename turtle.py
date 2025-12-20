@@ -38,6 +38,8 @@ main_Dock = Conversations.Dock
 def outgoing(prepared_schematic):
     main_Dock(prepared_schematic)
 
+squab = Pigeon(2)
+
 schema = squab.create_communication_schema
 
 def log(log: str) -> None:
@@ -83,6 +85,7 @@ class Soul:
     def mtime_fetcher(self, target: str, paths: list) -> None:
 
         mtime_list = {}
+        files_not_found = {}
         
         # first we make a loop that lasts till the paths are over
         for i, path in enumerate(paths, start=1):
@@ -90,10 +93,11 @@ class Soul:
             # merge target with relative path
             absolute_path = (Path(target) / path).resolve()
 
-            if not os.path.exists(absolute_path):
-                files_not_found.append(absolute_path)
-            
-            stat_object = os.stat(absolute_path)
+            try:           
+                stat_object = os.stat(absolute_path)
+            except OSError as e:
+                files_not_found[i] = self.extract_os_error(e, path = path)
+                continue
 
             last_modified_timestamp = stat_object.st_mtime
 
@@ -104,11 +108,24 @@ class Soul:
 
             mtime_list[i] = {
                 'path': path,
-                'mtime': mtime
+                'mtime': ist_mtime
             }
         
-        if len(file_not_found) > 0:
-            outgoing(schema(code=952, ok=False, target=0, err_msg=))
+
+
+        if len(files_not_found.keys()) > 0:
+            log("Found error in paths")
+            err_content = files_not_found
+            outgoing(schema(
+                ok=False,
+                code=952,
+                target=0,
+                err_content=err_content,
+                fatal= True,
+                err_logged=False
+            ))
+            log("sent error sources back to main")
+            return
         
         outgoing(schema(code=904, target=0, body=mtime_list))
         log("fetched, packaged and dispatched modified time")
@@ -125,3 +142,12 @@ class Soul:
 
         outgoing(schema(code=905, target=0, body=mtimes))
         log(f"changed mtime at indices: {indices}")
+
+    def extract_os_error(self, e: OSError, *, path=None) -> dict:
+        return {
+            "type": type(e).__name__,
+            "path": path,
+            "message": e.strerror,
+            "errno": e.errno,
+            "filename": e.filename,
+        }
