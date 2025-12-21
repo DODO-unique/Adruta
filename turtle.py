@@ -57,10 +57,10 @@ class Soul:
             if incoming['ok']:
                 # fetch git status and target path
                 target_paths_dictionary = incoming['body']
-                self.TARGET_PATH = target_paths_dictionary['target_path']
-                self.PATHS = target_paths_dictionary['paths']
+                TARGET_PATH = target_paths_dictionary['target_path']
+                PATHS = target_paths_dictionary['paths']
                 # reinforce the above with pydantic later
-                self.mtime_fetcher(self.TARGET_PATH, self.PATHS)
+                self.mtime_fetcher(TARGET_PATH, PATHS)
         
         if incoming['code'] == 202:
             if incoming['ok']:
@@ -79,19 +79,25 @@ class Soul:
                 new_time = body['new_time']
                 mtimes = body['mtimes']
 
-                self.change_mtime(indices, new_time, mtimes)
+                self.modify_commit_time(indices, new_time, mtimes)
 
 
     def mtime_fetcher(self, target: str, paths: list) -> None:
 
         mtime_list = {}
         files_not_found = {}
+        resolving_issues = {}
         
         # first we make a loop that lasts till the paths are over
         for i, path in enumerate(paths, start=1):
 
             # merge target with relative path
-            absolute_path = (Path(target) / path).resolve()
+            # the following filters if path don't exist itself. The latter becomes a finer mesh.
+            try:
+                absolute_path = (Path(target) / path).resolve(strict=True)
+            except OSError as e:
+                resolving_issues[i] = self.extract_os_error(e, path=path)
+                continue
 
             try:           
                 stat_object = os.stat(absolute_path)
@@ -108,13 +114,13 @@ class Soul:
 
             mtime_list[i] = {
                 'path': path,
-                'mtime': ist_mtime
+                'mtime': ist_mtime.isoformat()
             }
         
 
 
         if len(files_not_found.keys()) > 0:
-            log("Found error in paths")
+            log("Found error while trying to check stats in paths")
             err_content = files_not_found
             outgoing(schema(
                 ok=False,
@@ -124,13 +130,29 @@ class Soul:
                 fatal= True,
                 err_logged=False
             ))
-            log("sent error sources back to main")
+            log("sent error sources back to main: stats failure")
+            return
+        
+        if len(resolving_issues) > 0:
+            log("Found error while resolving paths")
+            err_content = resolving_issues
+            outgoing(
+                schema(
+                ok=False,
+                code=953,
+                target=0,
+                err_content=err_content,
+                fatal= True,
+                err_logged=False
+                )
+            )
+            log("sent error sources back to main: resolving paths")
             return
         
         outgoing(schema(code=904, target=0, body=mtime_list))
         log("fetched, packaged and dispatched modified time")
 
-    def change_mtime(self, indices: list, new_time: str, mtimes: dict) -> None:
+    def modify_commit_time(self, indices: list, new_time: str, mtimes: dict) -> None:
         
         if len(indices) > 0:    
             for index in indices:
